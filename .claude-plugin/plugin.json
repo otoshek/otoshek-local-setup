@@ -1,0 +1,18 @@
+{
+  "name": "otoshek-local-setup",
+  "version": "1.0.0",
+  "description": "Set up a complete local development environment for an Otoshek-deployed SaaS project",
+  "author": {
+    "name": "Otoshek Dev",
+    "email": "support@otoshek.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "otoshek",
+    "django",
+    "react",
+    "local-setup",
+    "saas",
+    "development"
+  ]
+}

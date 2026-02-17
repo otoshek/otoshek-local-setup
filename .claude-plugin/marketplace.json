@@ -1,0 +1,19 @@
+{
+  "name": "otoshek-local-setup",
+  "owner": {
+    "name": "Otoshek Dev",
+    "email": "support@otoshek.com"
+  },
+  "plugins": [
+    {
+      "name": "otoshek-local-setup",
+      "source": "./",
+      "description": "Set up a complete local development environment for an Otoshek-deployed SaaS project",
+      "version": "1.0.0",
+      "author": {
+        "name": "Otoshek Dev",
+        "email": "support@otoshek.com"
+      }
+    }
+  ]
+}
