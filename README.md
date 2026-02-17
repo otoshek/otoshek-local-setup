@@ -19,15 +19,33 @@ Supports **macOS**, **Linux**, and **Windows**. Auto-detects what is already ins
 
 ## Installation
 
+### Step 1 — Install Claude Code (skip if already installed)
+
 ```bash
-claude mcp add https://github.com/otoshek/otoshek-local-setup
+curl -fsSL https://claude.ai/install.sh | bash
 ```
 
-Or install via Claude Code settings → Plugins → Add from GitHub → `otoshek/otoshek-local-setup`.
+### Step 2 — Add the Otoshek plugin marketplace
+
+Open a terminal and run Claude Code in any directory, then run:
+
+```
+/plugin marketplace add otoshek/otoshek-local-setup
+```
+
+### Step 3 — Install the skill
+
+```
+/plugin install otoshek-local-setup@otoshek-otoshek-local-setup
+```
+
+That's it. The skill is now available in every Claude Code session.
+
+> Requires Claude Code **v1.0.33 or later**. Run `claude --version` to check.
 
 ## Usage
 
-Open Claude Code in the directory where you want to clone your project, then run:
+Open a terminal in the directory where you want to clone your project, start Claude Code, then run:
 
 ```
 /otoshek-local-setup git@github.com:YOUR_USERNAME/YOUR_REPO.git
@@ -43,6 +61,5 @@ Claude will guide you through the full setup, pausing only when human action is 
 
 ## Prerequisites
 
-- [Claude Code](https://claude.ai/claude-code) installed
 - A GitHub account with access to your Otoshek repository
 - Your API credentials ready (Google OAuth, Mailjet, Stripe — provided during your Otoshek onboarding)
