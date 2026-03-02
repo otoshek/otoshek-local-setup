@@ -37,18 +37,64 @@ The user should launch Claude from the parent directory where they want the proj
 7. Execute steps sequentially. Check if each tool is already installed before installing. Report status as you go.
 8. Pipe verbose install commands through `tail -10` to conserve context (e.g., `brew install postgresql@17 2>&1 | tail -10`). Always verify installation with a separate version check afterward.
 
+## Claude Code Environment Constraints
+
+Each Claude Code `Bash` tool call runs in a **fresh, non-login shell**. This has critical implications:
+
+- **No persistent shell state** — `PATH` changes, virtual environment activations, environment variable exports, and `cd` all reset between Bash calls. You must re-establish state in every call.
+- **No sudo access** — The skill does NOT install system packages requiring sudo. Step 1 checks prerequisites and stops if any are missing, providing the user with exact commands to run themselves.
+- **Tool API constraints** — `AskUserQuestion` requires 2-4 options (always provide at least 2). `Write` and `Edit` tools require a `Read` first if the file may already exist.
+
+### Shell Prefix Variables
+
+Every Bash command that needs brew-installed tools, PostgreSQL CLI, or the Python venv must chain the relevant prefixes:
+
+| Variable | Value (macOS) | Needed after |
+|---|---|---|
+| `BREW_PREFIX` | `eval "$(/opt/homebrew/bin/brew shellenv)" && ` | Step 1 |
+| `PG_PATH` | `export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && ` | Step 4 |
+| `VENV_ACTIVATE` | `source $PROJECT_ROOT/.venv/bin/activate && ` | Step 6 |
+
+**Usage pattern:** `BREW_PREFIX` + `PG_PATH` + `VENV_ACTIVATE` + `<command>`
+
+Example (Django management command):
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH" && source $PROJECT_ROOT/.venv/bin/activate && python $PROJECT_ROOT/manage.py migrate
+```
+
+**Linux note:** `BREW_PREFIX` uses `eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"`. `PG_PATH` is not needed on Linux (`apt` puts `psql` in the system PATH).
+
 ## Workflow
 
-### Step 1: Homebrew
+### Step 1: Prerequisites Gate
 
-Check: `brew --version`
-- If found: skip
-- If not found: install using OS-specific command from references/os-commands.md
-- Windows: inform user to use Chocolatey or WSL 2
+The skill does NOT install system-level dependencies (they require sudo). Instead, verify all prerequisites are present and **stop immediately** if any are missing, providing the user with exact install commands.
+
+**macOS checks** (run each in a separate Bash call):
+1. `brew --version` — Homebrew
+2. `eval "$(/opt/homebrew/bin/brew shellenv)" && mkcert -version` — mkcert
+3. `git --version` — Git
+4. `node --version` — Node.js (v18+)
+5. `eval "$(/opt/homebrew/bin/brew shellenv)" && python3.13 --version` — Python 3.13
+
+**Linux checks:** Same tools, but use `eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"` for brew-installed tools (or check system PATH directly if installed via apt).
+
+**Windows:** Check for `git`, `node`, `python`, `mkcert` on PATH. Homebrew is not used — inform user to install missing tools via Chocolatey or direct downloads.
+
+**If any prerequisite is missing:** Print a clear list of what's missing with install commands, then **STOP**. Do not continue to Step 2. Example:
+```
+The following prerequisites are missing. Install them and re-run the skill:
+
+1. Homebrew: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+2. mkcert: brew install mkcert && mkcert -install
+3. Python 3.13: brew install python@3.13
+```
+
+**If all present:** Set `BREW_PREFIX` for subsequent commands (`eval "$(/opt/homebrew/bin/brew shellenv)" && ` on macOS). Continue to Step 2.
 
 ### Step 2: Git + SSH + Clone Repository
 
-**Git:** Check `git --version`. Install if missing (OS-specific).
+**Git:** Git was already verified in the prerequisites gate (Step 1). It is guaranteed present.
 
 **SSH for GitHub:** Test the connection directly first — this is the most reliable signal:
 ```bash
@@ -60,7 +106,7 @@ ssh -T git@github.com 2>&1
   - `cat ~/.ssh/config` — check for GitHub host entries (e.g., `Host github.com` or aliases like `github.com-work`)
   - If keys and config exist but `ssh -T` failed, the issue is likely agent/config, not missing keys. Debug rather than regenerate.
 - Only if NO keys exist at all:
-  - Ask user for their email
+  - Ask user for their email (use AskUserQuestion with at least 2 options, e.g., "Use detected Git email" / "Enter different email")
   - Run `ssh-keygen -t ed25519 -C "user_email"`
   - Start SSH agent and add key (OS-specific commands from references/os-commands.md)
   - Copy public key to clipboard (OS-specific)
@@ -91,13 +137,7 @@ From this point forward, ALL file paths are absolute using `$PROJECT_ROOT`:
 
 ### Step 3: mkcert + SSL Certificates
 
-Check: `mkcert -version`
-- If not found: install (OS-specific)
-
-Install the local CA (idempotent, safe to re-run):
-```bash
-mkcert -install 2>&1 | tail -5
-```
+mkcert was already verified in the prerequisites gate (Step 1), which also instructs the user to run `mkcert -install` (requires sudo for local CA). Do NOT attempt to run `mkcert -install` here.
 
 **Check for existing certificates** before generating:
 ```bash
@@ -115,8 +155,7 @@ KEY_FILE=~/certs/localhost+2-key.pem
 
 **Generate certificates** (only if missing or expired):
 ```bash
-mkdir -p ~/certs
-cd ~/certs && mkcert localhost 127.0.0.1 ::1
+eval "$(/opt/homebrew/bin/brew shellenv)" && mkdir -p ~/certs && cd ~/certs && mkcert localhost 127.0.0.1 ::1
 ```
 
 Get absolute cert paths:
@@ -125,7 +164,7 @@ CERT_FILE=$(realpath ~/certs/localhost+2.pem)
 KEY_FILE=$(realpath ~/certs/localhost+2-key.pem)
 ```
 
-**Configure settings.json:** Create or update `$PROJECT_ROOT/.vscode/settings.json` to prevent Python from auto-activating the venv in integrated terminals (which breaks the frontend terminal):
+**Configure settings.json:** First **Read** `$PROJECT_ROOT/.vscode/settings.json` (it may already exist). Then create or update it to prevent Python from auto-activating the venv in integrated terminals (which breaks the frontend terminal):
 ```json
 {
   "python.terminal.activateEnvironment": false,
@@ -133,7 +172,7 @@ KEY_FILE=$(realpath ~/certs/localhost+2-key.pem)
 }
 ```
 
-**Configure launch.json:** Create or update `$PROJECT_ROOT/.vscode/launch.json`. Include both backend and frontend configs, plus a compound to launch both with a single F5:
+**Configure launch.json:** First **Read** `$PROJECT_ROOT/.vscode/launch.json` (it may already exist). Then create or update it. Include both backend and frontend configs, plus a compound to launch both with a single F5:
 ```json
 {
     "version": "0.2.0",
@@ -183,7 +222,7 @@ KEY_FILE=$(realpath ~/certs/localhost+2-key.pem)
 ```
 The user can select "Django + Frontend" from the debug dropdown to start both servers at once. Each opens in its own integrated terminal.
 
-**Configure vite.config.js:** Read and update the `https` section in `$PROJECT_ROOT/frontend/vite.config.js`:
+**Configure vite.config.js:** **Read** `$PROJECT_ROOT/frontend/vite.config.js` first, then **Edit** the `https` section:
 ```javascript
 https: {
   key: fs.readFileSync(path.resolve(__dirname, '$KEY_FILE')),
@@ -193,40 +232,53 @@ https: {
 
 ### Step 4: PostgreSQL
 
-**Check version:** `psql --version`
+**Check version:** `eval "$(/opt/homebrew/bin/brew shellenv)" && psql --version`
 - Versions 14-17: usable, skip install. Note the major version number (e.g., 14, 17).
 - Version 13 or older: recommend installing 17
-- Not found: install PostgreSQL 17 (OS-specific)
+- Not found: install PostgreSQL 17:
+  ```bash
+  eval "$(/opt/homebrew/bin/brew shellenv)" && brew install postgresql@17 2>&1 | tail -10
+  ```
 
-**Check if already running:** `pg_isready -q`
+After install (or if already installed), define `PG_PATH` using the detected version. All subsequent `psql`, `createdb`, and `pg_isready` commands must be prefixed with both `BREW_PREFIX` and `PG_PATH`.
+
+**Check if already running:**
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && pg_isready -q
+```
 - If ready: skip starting the service
 - If not ready, start using the **installed** version (not hardcoded 17):
-  - macOS: `brew services start postgresql@<INSTALLED_VERSION>` (e.g., `postgresql@14`)
-  - Linux: `sudo systemctl start postgresql`
-- Verify after starting: `pg_isready -q`
+  ```bash
+  eval "$(/opt/homebrew/bin/brew shellenv)" && brew services start postgresql@<INSTALLED_VERSION> 2>&1 | tail -5
+  ```
+  - Linux: `sudo systemctl start postgresql` (user must run manually)
+- Verify after starting:
+  ```bash
+  eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && pg_isready -q
+  ```
+
+> Replace `<VERSION>` with the actual detected PostgreSQL major version throughout this step.
 
 **Create superuser:**
 ```bash
-createuser -s postgres 2>/dev/null || true
+eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && createuser -s postgres 2>/dev/null || true
 ```
 
 **Create a fresh database.** Never drop or modify existing databases.
 Pick a unique name by checking what already exists:
 ```bash
-DB_NAME="local_otoshek"
-# If "local_otoshek" exists, try "local_otoshek_2", "local_otoshek_3", etc.
-while psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1; do
-  # increment suffix
-done
-createdb -U postgres -O postgres "$DB_NAME"
+eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && DB_NAME="local_otoshek" && while psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1; do DB_NAME="local_otoshek_$((++i))"; done && createdb -U postgres -O postgres "$DB_NAME" && echo "Created database: $DB_NAME"
 ```
 Remember the final `DB_NAME` — use it in Step 5 when configuring `settings.py`.
 Tell the user which database name was created (especially if it wasn't the default).
-- Verify: `psql -U postgres -tAc "SELECT datname FROM pg_database WHERE datname = '$DB_NAME'"`
+- Verify:
+  ```bash
+  eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && psql -U postgres -tAc "SELECT datname FROM pg_database WHERE datname = '$DB_NAME'"
+  ```
 
 ### Step 5: Configure Django Database
 
-Read and edit `$PROJECT_ROOT/backend/settings.py` — use the `$DB_NAME` from Step 4:
+**Read** `$PROJECT_ROOT/backend/settings.py` first, then **Edit** the DATABASES section — use the `$DB_NAME` from Step 4:
 ```python
 DATABASES = {
     'default': {
@@ -243,30 +295,31 @@ DATABASES = {
 
 ### Step 6: Python 3.13 + Virtual Environment
 
-Check: `python3.13 --version`
-- If not found: install (OS-specific)
+Python 3.13 was already verified in the prerequisites gate (Step 1). If somehow missing, stop and ask the user to install it.
 
 Create venv and install deps:
 ```bash
-python3.13 -m venv $PROJECT_ROOT/.venv
-source $PROJECT_ROOT/.venv/bin/activate  # Windows: $PROJECT_ROOT\.venv\Scripts\activate
-pip install -r $PROJECT_ROOT/requirements.txt
+eval "$(/opt/homebrew/bin/brew shellenv)" && python3.13 -m venv $PROJECT_ROOT/.venv
 ```
+
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)" && source $PROJECT_ROOT/.venv/bin/activate && pip install -r $PROJECT_ROOT/requirements.txt 2>&1 | tail -10
+```
+
+> **From this point forward**, prepend `VENV_ACTIVATE` (`source $PROJECT_ROOT/.venv/bin/activate && `) to every Python/pip/Django command. On Windows use `$PROJECT_ROOT\.venv\Scripts\activate` instead.
 
 ### Step 7: Apply Migrations
 
 ```bash
-source $PROJECT_ROOT/.venv/bin/activate
-python $PROJECT_ROOT/manage.py migrate
+eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && source $PROJECT_ROOT/.venv/bin/activate && python $PROJECT_ROOT/manage.py migrate
 ```
+> Replace `<VERSION>` with the actual PostgreSQL version detected in Step 4.
 
 ### Step 8: Create Django Superuser
 
 This step is fully automated. Create a superuser with simple credentials for local development:
 ```bash
-cd $PROJECT_ROOT
-source .venv/bin/activate
-python manage.py shell -c "
+eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && source $PROJECT_ROOT/.venv/bin/activate && python $PROJECT_ROOT/manage.py shell -c "
 from django.contrib.auth import get_user_model
 User = get_user_model()
 if not User.objects.filter(username='admin').exists():
@@ -276,6 +329,7 @@ else:
     print('Superuser already exists')
 "
 ```
+> Replace `<VERSION>` with the actual PostgreSQL version detected in Step 4.
 
 Tell the user: admin panel is at https://localhost:8000/admin (credentials: `admin` / `admin1234`).
 
@@ -323,9 +377,6 @@ STRIPE_STANDARD_MONTHLY_PRICE_ID=
 STRIPE_STANDARD_YEARLY_PRICE_ID=
 STRIPE_STARTER_MONTHLY_PRICE_ID=
 STRIPE_STARTER_YEARLY_PRICE_ID=
-
-# Stripe Webhook (will be filled in step 11)
-STRIPE_WEBHOOK_SECRET=
 ```
 
 Verify `.env.development` is listed in `$PROJECT_ROOT/.gitignore`.
@@ -336,9 +387,7 @@ This step is fully automated — no human action needed.
 
 **Insert the Stripe test key into the database** using the `sk_test_` key from step 9. The database is always fresh (created in Step 4), so insert directly without checking:
 ```bash
-cd $PROJECT_ROOT
-source .venv/bin/activate
-python manage.py shell -c "
+eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && source $PROJECT_ROOT/.venv/bin/activate && python $PROJECT_ROOT/manage.py shell -c "
 from djstripe.models import APIKey
 stripe_key = 'sk_test_...'  # use the actual key from step 9
 is_test = 'sk_test_' in stripe_key
@@ -349,41 +398,26 @@ APIKey.objects.create(
 print('API key added successfully')
 "
 ```
+> Replace `<VERSION>` with the actual PostgreSQL version detected in Step 4.
 
 **Sync Stripe data:**
 ```bash
-python manage.py djstripe_sync_models price plan product customer subscription WebhookEndpoint 2>&1 | tail -5
+eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && source $PROJECT_ROOT/.venv/bin/activate && python $PROJECT_ROOT/manage.py djstripe_sync_models price plan product customer subscription WebhookEndpoint 2>&1 | tail -5
 ```
 
 This pulls products, prices, plans, customers, subscriptions, and webhook endpoints from Stripe test mode into the local database.
 
-### Step 11: Configure Webhook Secret
+### Step 11: Node.js + Frontend Dependencies
 
-The webhook signing secret cannot be retrieved via the Stripe API — it is only visible in the Stripe Dashboard. This is the one manual Stripe step.
-
-**PAUSE — Human action required:**
-> Get your webhook signing secret from Stripe:
-> 1. Log in to Stripe Dashboard
-> 2. Search for "webhook" → select Webhooks
-> 3. Click your webhook endpoint
-> 4. Find "Signing secret" → click Reveal → copy (starts with `whsec_`)
-> 5. Paste it here.
-
-Add the value to `$PROJECT_ROOT/.env.development` as `STRIPE_WEBHOOK_SECRET=whsec_...`
-
-### Step 13: Node.js + Frontend Dependencies
-
-Check: `node --version` (v18+ recommended)
-- If not found: install (OS-specific)
+Node.js was already verified in the prerequisites gate (Step 1). If somehow missing, stop and ask the user to install it.
 
 ```bash
-cd $PROJECT_ROOT/frontend
-npm install
+eval "$(/opt/homebrew/bin/brew shellenv)" && cd $PROJECT_ROOT/frontend && npm install
 ```
 
 Do NOT run `npm run dev` here — the frontend dev server is launched automatically via the "Django + Frontend" compound in launch.json (Step 3).
 
-### Step 14: Verify
+### Step 12: Verify
 
 Tell the user:
 > Setup complete! To start developing:

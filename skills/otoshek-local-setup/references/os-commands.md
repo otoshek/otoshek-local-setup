@@ -4,10 +4,32 @@ Read this file to get the correct commands for the user's operating system.
 Detect OS using `uname -s` (Darwin = macOS, Linux = Linux) or check `$OSTYPE`.
 On Windows, detect via `systeminfo` or presence of `C:\Windows`.
 
+## Claude Code PATH Persistence Patterns
+
+Each Claude Code `Bash` tool call runs in a **fresh, non-login shell**. This means `PATH` changes, virtual environment activations, and `cd` do NOT persist between calls. Writing to `~/.zshrc` or `~/.bash_profile` helps the user's own terminal but has **no effect** on subsequent Claude Code Bash calls.
+
+To work around this, **prefix every Bash command** with the required setup:
+
+| Pattern | macOS value | Needed after |
+|---|---|---|
+| `BREW_PREFIX` | `eval "$(/opt/homebrew/bin/brew shellenv)" && ` | Homebrew is installed |
+| `PG_PATH` | `export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && ` | PostgreSQL is installed |
+| `VENV_ACTIVATE` | `source $PROJECT_ROOT/.venv/bin/activate && ` | Python venv is created |
+
+**Combined example** (Django management command that needs all three):
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH" && source $PROJECT_ROOT/.venv/bin/activate && python $PROJECT_ROOT/manage.py migrate
+```
+
+**Linux note:** `BREW_PREFIX` uses `eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"`. `PG_PATH` is not needed on Linux because `apt` puts `psql` in the system PATH.
+
+> Writing to the user's shell profile (`~/.zshrc`, `~/.bash_profile`) is still useful so their own terminal sessions work correctly — but it does not help Claude Code Bash calls.
+
 ## Homebrew
 
 ### macOS
 ```bash
+# NOTE: Requires sudo. The skill does NOT run this — it checks prerequisites and tells the user to install manually.
 # Install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
@@ -19,9 +41,11 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.bash_profile
 eval "$(/opt/homebrew/bin/brew shellenv)"
 ```
+> **Claude Code note:** The `eval` line must be prepended to EVERY subsequent Bash call that needs brew-installed tools. See "Claude Code PATH Persistence Patterns" above.
 
 ### Linux
 ```bash
+# NOTE: Requires sudo. The skill does NOT run this — it checks prerequisites and tells the user to install manually.
 # Install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 # Follow post-installation instructions printed by the script
@@ -39,6 +63,7 @@ brew install git
 
 ### Linux
 ```bash
+# NOTE: Requires sudo. The skill does NOT run this — it tells the user to install manually.
 sudo apt update && sudo apt install -y git
 ```
 
@@ -105,9 +130,11 @@ clip < ~/.ssh/id_ed25519.pub
 brew install mkcert
 brew install nss  # optional, for Firefox
 ```
+> **Claude Code note:** `mkcert -install` requires sudo (installs a local CA). The skill checks this in prerequisites and tells the user to run it manually.
 
 ### Linux
 ```bash
+# NOTE: Requires sudo. The skill does NOT run this — it tells the user to install manually.
 sudo apt install libnss3-tools
 curl -JLO https://github.com/FiloSottile/mkcert/releases/latest/download/mkcert-$(uname -s)-$(uname -m)
 chmod +x mkcert-*
@@ -134,9 +161,11 @@ source ~/.bash_profile
 # Start service
 brew services start postgresql@17
 ```
+> **Claude Code note:** In Claude Code Bash calls, `source ~/.zshrc` has no effect (each call is a fresh shell). Instead, prepend `export PATH="/opt/homebrew/opt/postgresql@<VERSION>/bin:$PATH" && ` to every command that needs `psql`, `createdb`, or `pg_isready`. See "Claude Code PATH Persistence Patterns" above.
 
 ### Linux
 ```bash
+# NOTE: Requires sudo. The skill does NOT run this — it tells the user to install manually.
 # Add PostgreSQL APT repository
 sudo apt install -y postgresql-common
 sudo sh /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh
@@ -160,6 +189,7 @@ brew install python@3.13
 
 ### Linux
 ```bash
+# NOTE: Requires sudo. The skill does NOT run this — it tells the user to install manually.
 sudo apt update
 sudo apt install -y python3.13 python3.13-venv python3.13-dev
 ```
@@ -176,6 +206,7 @@ brew install node
 
 ### Linux
 ```bash
+# NOTE: Requires sudo. The skill does NOT run this — it tells the user to install manually.
 sudo apt install nodejs npm
 ```
 
@@ -192,10 +223,12 @@ After install, open VS Code and run "Shell Command: Install 'code' command in PA
 
 ### Linux
 ```bash
+# NOTE: Requires sudo. The skill does NOT run this — it tells the user to install manually.
 sudo snap install code --classic
 ```
 Or via apt:
 ```bash
+# NOTE: Requires sudo. The skill does NOT run this — it tells the user to install manually.
 wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
 sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
 echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list
