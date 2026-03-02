@@ -6,7 +6,8 @@ A Claude Code skill that sets up a complete local development environment for yo
 
 After Otoshek deploys your SaaS app, you'll receive a GitHub repository. This skill automates cloning and configuring everything you need to start building locally:
 
-- Installs system dependencies (Homebrew, Git, mkcert, PostgreSQL, Python 3.13, Node.js, VS Code)
+- Verifies system prerequisites are installed (see below) and stops with install commands if any are missing
+- Installs and configures PostgreSQL and VS Code
 - Configures HTTPS SSL certificates for local development
 - Creates and configures a local PostgreSQL database
 - Sets up the Python virtual environment and installs dependencies
@@ -60,6 +61,33 @@ You can also provide an HTTPS URL — the skill will convert it automatically:
 Claude will guide you through the full setup, pausing only when human action is required (e.g., adding an SSH key to GitHub, providing API credentials).
 
 ## Prerequisites
+
+The skill checks for these on startup and will tell you exactly what's missing. Install them before running the skill:
+
+### macOS
+
+```bash
+# 1. Homebrew (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 2. Required tools
+brew install git node python@3.13 mkcert
+mkcert -install
+```
+
+### Linux
+
+```bash
+# 1. Homebrew (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 2. Required tools (via apt or brew)
+sudo apt update && sudo apt install -y git nodejs npm
+brew install python@3.13 mkcert
+mkcert -install
+```
+
+### You'll also need
 
 - A GitHub account with access to your Otoshek repository
 - Your API credentials ready (Google OAuth, Mailjet, Stripe — provided during your Otoshek onboarding)
