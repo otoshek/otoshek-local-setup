@@ -16,7 +16,41 @@ After Otoshek deploys your SaaS app, you'll receive a GitHub repository. This sk
 - Syncs Stripe products and pricing from test mode
 - Sets up VS Code with F5 launch for Django + React simultaneously
 
-Supports **macOS**, **Linux**, and **Windows**. Auto-detects what is already installed and skips completed steps.
+Supports **macOS** and **Linux**. Auto-detects what is already installed and skips completed steps.
+
+> **Windows users:** Windows is not officially supported. We recommend using [WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux) with Ubuntu, then following the Linux instructions below.
+
+## Prerequisites
+
+The skill checks for these on startup and will tell you exactly what's missing. Install them before running the skill.
+
+### macOS
+
+```bash
+# 1. Homebrew (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 2. Required tools
+brew install git node python@3.13 mkcert
+mkcert -install
+```
+
+### Linux
+
+```bash
+# 1. Homebrew (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 2. Required tools
+sudo apt update && sudo apt install -y git nodejs npm
+brew install python@3.13 mkcert
+mkcert -install
+```
+
+### You'll also need
+
+- A GitHub account with access to your Otoshek repository
+- Your API credentials ready (Google OAuth, Mailjet, Stripe — provided during your Otoshek onboarding)
 
 ## Installation
 
@@ -59,35 +93,3 @@ You can also provide an HTTPS URL — the skill will convert it automatically:
 ```
 
 Claude will guide you through the full setup, pausing only when human action is required (e.g., adding an SSH key to GitHub, providing API credentials).
-
-## Prerequisites
-
-The skill checks for these on startup and will tell you exactly what's missing. Install them before running the skill:
-
-### macOS
-
-```bash
-# 1. Homebrew (if not already installed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# 2. Required tools
-brew install git node python@3.13 mkcert
-mkcert -install
-```
-
-### Linux
-
-```bash
-# 1. Homebrew (if not already installed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# 2. Required tools (via apt or brew)
-sudo apt update && sudo apt install -y git nodejs npm
-brew install python@3.13 mkcert
-mkcert -install
-```
-
-### You'll also need
-
-- A GitHub account with access to your Otoshek repository
-- Your API credentials ready (Google OAuth, Mailjet, Stripe — provided during your Otoshek onboarding)
