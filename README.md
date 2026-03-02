@@ -16,9 +16,7 @@ After Otoshek deploys your SaaS app, you'll receive a GitHub repository. This sk
 - Syncs Stripe products and pricing from test mode
 - Sets up VS Code with F5 launch for Django + React simultaneously
 
-Supports **macOS** and **Linux**. Auto-detects what is already installed and skips completed steps.
-
-> **Windows users:** Windows is not officially supported. We recommend using [WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install) (Windows Subsystem for Linux) with Ubuntu, then following the Linux instructions below.
+Supports **macOS**, **Linux**, and **Windows**. Auto-detects what is already installed and skips completed steps.
 
 ## Prerequisites
 
@@ -44,6 +42,25 @@ mkcert -install
 # 2. Required tools
 sudo apt update && sudo apt install -y git nodejs npm
 brew install python@3.13 mkcert
+mkcert -install
+```
+
+### Windows
+
+Install the following tools manually (no Homebrew on Windows):
+
+1. [Git](https://git-scm.com/download/win) — accept default settings
+2. [Node.js](https://nodejs.org/en/download/) — LTS version
+3. [Python 3.13](https://www.python.org/downloads/windows/) — enable "Add Python to PATH"
+4. [mkcert](https://github.com/FiloSottile/mkcert/releases) — download `mkcert-*.exe`, rename to `mkcert.exe`, add to PATH, then run:
+   ```
+   mkcert -install
+   ```
+
+Or install via [Chocolatey](https://chocolatey.org/):
+
+```powershell
+choco install git nodejs python mkcert
 mkcert -install
 ```
 
