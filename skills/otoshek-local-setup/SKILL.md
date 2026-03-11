@@ -377,6 +377,10 @@ STRIPE_STANDARD_MONTHLY_PRICE_ID=
 STRIPE_STANDARD_YEARLY_PRICE_ID=
 STRIPE_STARTER_MONTHLY_PRICE_ID=
 STRIPE_STARTER_YEARLY_PRICE_ID=
+
+# SEO — set to true when ready for search engines to index your site
+# Switches robots.txt from Disallow: / to Allow: / and adds a sitemap reference
+SEO_ENABLED=
 ```
 
 Verify `.env.development` is listed in `$PROJECT_ROOT/.gitignore`.
@@ -413,6 +417,21 @@ Node.js was already verified in the prerequisites gate (Step 1). If somehow miss
 
 ```bash
 eval "$(/opt/homebrew/bin/brew shellenv)" && cd $PROJECT_ROOT/frontend && npm install
+```
+
+Create `$PROJECT_ROOT/frontend/.env.local` with the optional feature variables (commented out — uncomment when ready to use):
+
+```bash
+cat > $PROJECT_ROOT/frontend/.env.local << 'EOF'
+# Analytics — Google Analytics + Microsoft Clarity via Google Tag Manager
+# Get your GTM container ID from tagmanager.google.com
+# Setting this activates tracking scripts and shows the cookie consent banner
+# VITE_GTM_ID=GTM-XXXXXXX
+
+# SEO — removes noindex from all pages and enables per-page titles/descriptions
+# Must also set SEO_ENABLED=true in .env.development (controls robots.txt)
+# VITE_SEO_ENABLED=true
+EOF
 ```
 
 Do NOT run `npm run dev` here — the frontend dev server is launched automatically via the "Django + Frontend" compound in launch.json (Step 3).
