@@ -342,11 +342,15 @@ Ask the user to provide their credentials. They need to provide ALL of the follo
 - Stripe Price IDs (6 values)
 - Stripe test secret key (starts with `sk_test_`)
 
+LLM API keys (OpenAI or Google) are **optional at this stage** — see the note below.
+
 Tell the user where to find each value:
 - **Google OAuth**: Google Cloud Console credentials (configured during infra setup)
 - **Email**: Mailjet API credentials (configured during infra setup)
 - **Stripe Price IDs**: Shown during deployment output, or in the deployment dashboard details
 - **Stripe test secret key**: Stripe Dashboard → Developers → API keys → Secret key (test mode)
+- **OpenAI API key**: platform.openai.com → API keys
+- **Google Gemini API key**: aistudio.google.com → Get API key
 
 Create `$PROJECT_ROOT/.env.development` with their values:
 
@@ -381,7 +385,15 @@ STRIPE_STARTER_YEARLY_PRICE_ID=
 # SEO — set to true when ready for search engines to index your site
 # Switches robots.txt from Disallow: / to Allow: / and adds a sitemap reference
 SEO_ENABLED=
+
+# LLM API Keys (optional — see note below)
+OPENAI_API_KEY=
+GOOGLE_API_KEY=
 ```
+
+**Note on LLM API keys:** If neither `OPENAI_API_KEY` nor `GOOGLE_API_KEY` is set, the app's chat assistant will not work. This is intentional — the chat is designed to be grounded on information specific to the product being built, so it should be configured deliberately rather than working out of the box with a generic model. The same applies to the deployed app: no LLM key is set in production by default.
+
+You are not limited to OpenAI or Google. The app uses LangChain, which supports a wide range of model providers (Anthropic, Mistral, Ollama, etc.). LangChain's documentation makes it straightforward to swap in any supported model. To enable the chat assistant, add the appropriate API key and update the model configuration when you're ready.
 
 Verify `.env.development` is listed in `$PROJECT_ROOT/.gitignore`.
 
