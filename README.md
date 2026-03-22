@@ -14,34 +14,47 @@ After Otoshek deploys your SaaS app, you'll receive a GitHub repository. This sk
 - Applies Django migrations and creates a superuser
 - Configures environment variables (Google OAuth, Mailjet, Stripe)
 - Syncs Stripe products and pricing from test mode
-- Sets up VS Code with F5 launch for Django + React simultaneously
+- Sets up VS Code with F5 launch for Django + React simultaneously (`launch.json`)
 
 Supports **macOS**, **Linux**, and **Windows**. Auto-detects what is already installed and skips completed steps.
 
 ## Prerequisites
 
-The skill checks for these on startup and will tell you exactly what's missing. Install them before running the skill.
+The skill installs most tools automatically. Homebrew and mkcert require your password and can't be automated — install them first, or the skill will pause and give you the exact commands when it reaches that step.
 
 ### macOS
 
+**1. Check if Homebrew is already installed**
 ```bash
-# 1. Homebrew (if not already installed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+command -v brew &>/dev/null && echo "Homebrew already installed"
+```
 
-# 2. Required tools
-brew install git node python@3.13 mkcert
+**2. Install Homebrew** (skip if already installed)
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+**3. Install mkcert**
+```bash
+brew install mkcert
 mkcert -install
 ```
 
 ### Linux
 
+**1. Check if Homebrew is already installed**
 ```bash
-# 1. Homebrew (if not already installed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+command -v brew &>/dev/null && echo "Homebrew already installed"
+```
 
-# 2. Required tools
-sudo apt update && sudo apt install -y git nodejs npm
-brew install python@3.13 mkcert
+**2. Install Homebrew** (skip if already installed)
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+**3. Install mkcert**
+```bash
+brew install mkcert
 mkcert -install
 ```
 

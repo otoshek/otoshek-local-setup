@@ -42,7 +42,7 @@ The user should launch Claude from the parent directory where they want the proj
 Each Claude Code `Bash` tool call runs in a **fresh, non-login shell**. This has critical implications:
 
 - **No persistent shell state** — `PATH` changes, virtual environment activations, environment variable exports, and `cd` all reset between Bash calls. You must re-establish state in every call.
-- **No sudo access** — The skill does NOT install system packages requiring sudo. Step 1 checks prerequisites and stops if any are missing, providing the user with exact commands to run themselves.
+- **No sudo access** — The skill cannot run commands that prompt for a password (e.g., Homebrew install, `mkcert -install`). If a step fails because a tool is missing, print the exact install command for the user to run, then wait for them to confirm before continuing.
 - **Tool API constraints** — `AskUserQuestion` requires 2-4 options (always provide at least 2). `Write` and `Edit` tools require a `Read` first if the file may already exist.
 
 ### Shell Prefix Variables
@@ -66,35 +66,18 @@ eval "$(/opt/homebrew/bin/brew shellenv)" && export PATH="/opt/homebrew/opt/post
 
 ## Workflow
 
-### Step 1: Prerequisites Gate
+### Step 1: Homebrew
 
-The skill does NOT install system-level dependencies (they require sudo). Instead, verify all prerequisites are present and **stop immediately** if any are missing, providing the user with exact install commands.
+Check: `brew --version`
+- If found: set `BREW_PREFIX` and continue
+- If not found: print the install command from references/os-commands.md and wait for the user to install it, then verify and continue
+- Windows: inform user to use Chocolatey or WSL 2
 
-**macOS checks** (run each in a separate Bash call):
-1. `brew --version` — Homebrew
-2. `eval "$(/opt/homebrew/bin/brew shellenv)" && mkcert -version` — mkcert
-3. `git --version` — Git
-4. `node --version` — Node.js (v18+)
-5. `eval "$(/opt/homebrew/bin/brew shellenv)" && python3.13 --version` — Python 3.13
-
-**Linux checks:** Same tools, but use `eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"` for brew-installed tools (or check system PATH directly if installed via apt).
-
-**Windows:** Check for `git`, `node`, `python`, `mkcert` on PATH. Homebrew is not used — inform user to install missing tools via Chocolatey or direct downloads.
-
-**If any prerequisite is missing:** Print a clear list of what's missing with install commands, then **STOP**. Do not continue to Step 2. Example:
-```
-The following prerequisites are missing. Install them and re-run the skill:
-
-1. Homebrew: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-2. mkcert: brew install mkcert && mkcert -install
-3. Python 3.13: brew install python@3.13
-```
-
-**If all present:** Set `BREW_PREFIX` for subsequent commands (`eval "$(/opt/homebrew/bin/brew shellenv)" && ` on macOS). Continue to Step 2.
+Once Homebrew is confirmed present, set `BREW_PREFIX` for all subsequent commands (`eval "$(/opt/homebrew/bin/brew shellenv)" && ` on macOS, `eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && ` on Linux).
 
 ### Step 2: Git + SSH + Clone Repository
 
-**Git:** Git was already verified in the prerequisites gate (Step 1). It is guaranteed present.
+**Git:** Check `git --version`. If missing, install using OS-specific command from references/os-commands.md.
 
 **SSH for GitHub:** Test the connection directly first — this is the most reliable signal:
 ```bash
@@ -137,7 +120,13 @@ From this point forward, ALL file paths are absolute using `$PROJECT_ROOT`:
 
 ### Step 3: mkcert + SSL Certificates
 
-mkcert was already verified in the prerequisites gate (Step 1), which also instructs the user to run `mkcert -install` (requires sudo for local CA). Do NOT attempt to run `mkcert -install` here.
+Check: `eval "$(/opt/homebrew/bin/brew shellenv)" && mkcert -version`
+- If not found: install using OS-specific command from references/os-commands.md
+
+Install the local CA (requires password — if it fails, print the command and ask the user to run it):
+```bash
+eval "$(/opt/homebrew/bin/brew shellenv)" && mkcert -install 2>&1 | tail -5
+```
 
 **Check for existing certificates** before generating:
 ```bash
@@ -295,7 +284,8 @@ DATABASES = {
 
 ### Step 6: Python 3.13 + Virtual Environment
 
-Python 3.13 was already verified in the prerequisites gate (Step 1). If somehow missing, stop and ask the user to install it.
+Check: `eval "$(/opt/homebrew/bin/brew shellenv)" && python3.13 --version`
+- If not found: install using OS-specific command from references/os-commands.md
 
 Create venv and install deps:
 ```bash
@@ -425,7 +415,8 @@ This pulls products, prices, plans, customers, subscriptions, and webhook endpoi
 
 ### Step 11: Node.js + Frontend Dependencies
 
-Node.js was already verified in the prerequisites gate (Step 1). If somehow missing, stop and ask the user to install it.
+Check: `node --version` (v18+ recommended)
+- If not found: install using OS-specific command from references/os-commands.md
 
 ```bash
 eval "$(/opt/homebrew/bin/brew shellenv)" && cd $PROJECT_ROOT/frontend && npm install
